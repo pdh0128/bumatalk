@@ -55,11 +55,21 @@ def teacher(req):
     return res
 
 def bssm(req):
+    temp = """
+        너는 부산소프트웨어마이스터고등학교에 대한 전문가야.
+        사용자가 묻는 모든 질문에 대해 정확하고 친절하며, 필요한 경우 상세한 정보를 제공해줘.
+        답변은 간결하면서도 이해하기 쉽게 작성해야 해.
+        질문: {Question}
+        답변:
+        """
     llm = ChatPerplexity(
-        temperature=0, model="sonar-reasoning"
+        temperature=0, model="sonar-pro"
     )
-
-    pass
+    prompt = PromptTemplate(input_variables=["Question"], template=temp)
+    chain = prompt | llm | StrOutputParser()
+    res = chain.invoke(input={"Question" : req})
+    print(res)
+    return res
 
 def summary(name, text):
     text = text.strip()

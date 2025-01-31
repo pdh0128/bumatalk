@@ -42,7 +42,7 @@ def store(name, text, url):
     print("Ok, Store")
 
 
-def bumawiki():
+def bumawiki_student():
     db = Mongo()
     user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36"
     url = "https://buma.wiki/student"
@@ -100,6 +100,63 @@ def bumawiki():
     except Exception as e:
         print(f"오류 발생: {e}")
     driver.quit()
+def bumawiki_teacher():
+    db = Mongo()
+    user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36"
+    url = "https://buma.wiki/teacher"
+    options = Options()
+    # options.add_argument('--headless')
+    options.add_argument(f"user-agent={user_agent}")
+    service = Service(ChromeDriverManager().install())
+    driver = webdriver.Chrome(service=service, options=options)
+    driver.get(url)
+    visited_name = set()
+    last_action_time = time.time()
+    timeout = 60
+    try:
+        while True:
+            elements = WebDriverWait(driver, 20).until(
+                EC.presence_of_all_elements_located((By.CLASS_NAME, "bumawiki_1mrozeh4"))
+            )
 
+            if time.time() - last_action_time > timeout:
+                print("1분 동안 아무 작업도 없어서 종료합니다.")
+                break
+
+            if not elements:
+                print("더 이상 요소가 없습니다. 종료합니다.")
+                break
+
+            for i in range(len(elements)):
+                elements = WebDriverWait(driver, 20).until(
+                    EC.presence_of_all_elements_located((By.CLASS_NAME, "bumawiki_1mrozeh4"))
+                )
+                element = elements[i]
+                name = element.text.strip()
+                if name in visited_name:
+                    continue
+                visited_name.add(name)
+                try:
+                    WebDriverWait(driver, 20).until(EC.element_to_be_clickable(element))
+                    element.click()
+                    last_action_time = time.time()
+                except ElementClickInterceptedException as e:
+                    driver.execute_script("arguments[0].scrollIntoView(true);", element)
+                    last_action_time = time.time()
+                time.sleep(3)
+                content = driver.page_source
+                soup = BeautifulSoup(content, 'html.parser')
+                text = soup.get_text().split("데이터를 제공할 수 있습니다.")[1][1:].split("문서 기여자")[0].strip()
+                current_url = driver.current_url
+                print(name)
+                store(name, text, current_url)
+                db.insertTeacher(name, text, current_url)
+                driver.back()
+                time.sleep(5)
+                last_action_time = time.time()
+    except Exception as e:
+        print(f"오류 발생: {e}")
+    driver.quit()
 if __name__ == "__main__":
-    bumawiki()
+    # bumawiki_student()
+    bumawiki_teacher()
