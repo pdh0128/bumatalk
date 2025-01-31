@@ -14,6 +14,7 @@ from bs4 import BeautifulSoup
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from llm import summary
+from mongo import Mongo
 
 load_dotenv()
 embeddings = OpenAIEmbeddings()
@@ -42,9 +43,9 @@ def store(name, text, url):
 
 
 def bumawiki():
+    db = Mongo()
     user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36"
     url = "https://buma.wiki/student"
-
     options = Options()
     # options.add_argument('--headless')
     options.add_argument(f"user-agent={user_agent}")
@@ -58,15 +59,16 @@ def bumawiki():
             elements = WebDriverWait(driver, 20).until(
                 EC.presence_of_all_elements_located((By.CLASS_NAME, "bumawiki_1mrozeh4"))
             )
+            if not elements:
+                print("더 이상 요소가 없습니다. 종료합니다.")
+                break
 
             for i in range(len(elements)):
                 elements = WebDriverWait(driver, 20).until(
                     EC.presence_of_all_elements_located((By.CLASS_NAME, "bumawiki_1mrozeh4"))
                 )
-
                 element = elements[i]
                 name = element.text.strip()
-
                 if name in visited_name:
                     continue
                 visited_name.add(name)
@@ -78,10 +80,11 @@ def bumawiki():
                 time.sleep(3)
                 content = driver.page_source
                 soup = BeautifulSoup(content, 'html.parser')
-                text = soup.get_text().split("데이터를 제공할 수 있습니다.")[1].split("문서 기여자")[0].strip()
+                text = soup.get_text().split("데이터를 제공할 수 있습니다.")[1][1:].split("문서 기여자")[0].strip()
                 current_url = driver.current_url
                 print(name)
                 store(name, text, current_url)
+                db.insertStudent(name, text, current_url)
                 driver.back()
                 time.sleep(5)
     except Exception as e:
