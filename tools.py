@@ -11,6 +11,10 @@ from langchain_core.output_parsers import StrOutputParser
 from langchain_community.chat_models import ChatPerplexity
 from langchain_core.prompts import ChatPromptTemplate
 
+from langchain.globals import set_llm_cache
+from langchain.cache import InMemoryCache
+
+set_llm_cache(InMemoryCache())
 
 load_dotenv()
 pc = Pinecone(api_key=os.getenv("PINECONE_API_KEY"))
@@ -18,6 +22,10 @@ embedder = OpenAIEmbeddings()
 vector_store = PineconeVectorStore(index_name=os.getenv("PINECONE_INDEX"), embedding=embedder)
 pinecone_index = pc.Index(os.getenv("PINECONE_INDEX"))
 db = Mongo()
+def checkNone(res):
+    if res is None:
+        return {"output": " ❌ 검색 실패 ❌"}
+    return res
 def student(req):
     temp = """
         너는 부산소프트웨어마이스터고의 학생 {name}에 대해 잘 알고 있는 전문가야.
@@ -32,7 +40,7 @@ def student(req):
     student = db.getStudent(student_url)
     llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
     chain = prompt | llm | StrOutputParser()
-    res = "부마위키에 따르면.. \n" + chain.invoke(input={"name" : student['name'], "Info" : student["text"], "Question" : req})
+    res = chain.invoke(input={"name" : student['name'], "Info" : student["text"], "Question" : req})
     print(res)
     return res
 
@@ -50,7 +58,7 @@ def teacher(req):
     teacher = db.getTeacher(teacher_url)
     llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
     chain = prompt | llm | StrOutputParser()
-    res = "부마위키에 따르면.. \n" + chain.invoke(input={"name" : teacher['name'], "Info" : teacher["text"], "Question" : req})
+    res = chain.invoke(input={"name" : teacher['name'], "Info" : teacher["text"], "Question" : req})
     print(res)
     return res
 
@@ -70,6 +78,9 @@ def bssm(req):
     res = chain.invoke(input={"Question" : req})
     print(res)
     return res
+
+def iDontKnow(req):
+    return {"output": "잘 모르겠습니다.\n저는 부소마고의 정보를 알리는 부마톡입니다.\n다시 한번 말씀해주실 수 있을까요? 🙏"}
 
 def summary(name, text):
     text = text.strip()

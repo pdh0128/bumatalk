@@ -28,21 +28,27 @@ async def reply(request: Request):
     async def sendResponse():
         try:
             res = bumatalk(req)
-            responseBody = {
-                "version": "2.0",
-                "template": {
-                    "outputs": [
-                        {
-                            "simpleText": {
-                                "text": res
-                            }
-                        }
-                    ]
-                }
-            }
+            responseBody = create_response_body(res)
             async with httpx.AsyncClient() as client:
-                response = await client.post(callback_url, json=responseBody)
+                await client.post(callback_url, json=responseBody)
         except Exception as e:
-            print(f"콜백 요청 실패: {e}")
+            print(f"error : {e}")
+            responseBody = create_response_body("다시 시도해주세요 🙏")
+            async with httpx.AsyncClient() as client:
+                await client.post(callback_url, json=responseBody)
     asyncio.create_task(sendResponse())
     return callbackResponse
+
+def create_response_body(res):
+    return {
+        "version": "2.0",
+        "template": {
+            "outputs": [
+                {
+                    "simpleText": {
+                        "text": res
+                    }
+                }
+            ]
+        }
+    }
