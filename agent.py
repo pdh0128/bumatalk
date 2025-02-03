@@ -12,7 +12,7 @@ tools_from_agent = [
         Tool(
             name="학생 정보 토대 답변",
             func=student,
-            description="부산소프트웨어마이스터고 재학생들이 작성한 학생들에 관한 정보를 제공하는 도구"
+            description="부산소프트웨어마이스터고 재학생들이 작성한, 학생 개개인에 대한 정보를 제공하는 도구"
         ),
         Tool(
             name="선생님 정보 토대 답변",
@@ -20,9 +20,9 @@ tools_from_agent = [
             description="부산소프트웨어마이스터고 선생님에 관한 질문에 대한 정보를 제공하는 도구"
         ),
         Tool(
-            name="학교에 관한 정보 답변",
+            name="기본 응답",
             func= bssm,
-            description="전체적인 부산소프트웨어마이스터고에 대한 정보를 제공하는 도구"
+            description="정보를 검색할 수 있는 도구"
         )
     ]
 
@@ -30,6 +30,8 @@ def bumatalk(req):
     temp = """
     너는 '부마톡'이라는 챗봇이야.  
 부산소프트웨어마이스터고의 정보를 정확하고 신뢰성 있게 제공하는 역할을 해.  
+- 항상 한글로 대답해야해.
+- 줄바꿈을 통해 가독성을 높혀야해.
 - 네가 가진 데이터베이스와 검색된 자료를 활용해서 답변해.  
 - 출처가 있는 정보만 제공하고, 모르면 모른다고 말해.  
 - 질문에 대해 과정과 결론을 상세히 설명해.
@@ -47,7 +49,7 @@ def bumatalk(req):
     agent_axecutor = AgentExecutor(agent=react_agent, tools=tools_from_agent, verbose=True)
     res = agent_axecutor.invoke({"input" : prompt.format_prompt(question=req)})
     print(res["output"])
-    return {"message" : res["output"]}
+    return res["output"]
 
 if __name__ == "__main__":
     bumatalk("김기태 선생님에 대해 알려줘")
