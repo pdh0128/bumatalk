@@ -1,6 +1,5 @@
 from fastapi import FastAPI, Request
 from agent import bumatalk
-from typing import Dict
 import httpx
 import asyncio
 app = FastAPI()
