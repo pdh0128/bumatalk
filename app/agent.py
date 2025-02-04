@@ -1,12 +1,16 @@
+import datetime
 from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
 from langchain.prompts import PromptTemplate
-from langchain.agents import create_react_agent, AgentExecutor
+from langchain.agents import create_react_agent, AgentExecutor, initialize_agent
 from langchain import hub
 from langchain.tools import Tool
 from tools import *
 from langchain.globals import set_llm_cache
 from langchain_community.cache import InMemoryCache
+from langchain.memory import ConversationBufferMemory
+from langchain_community.chat_message_histories import UpstashRedisChatMessageHistory
+
 
 set_llm_cache(InMemoryCache())
 load_dotenv()
@@ -56,7 +60,17 @@ tools_from_agent = [
     ),
     ]
 
-def bumatalk(req):
+def bumatalk(req, userid):
+    history = UpstashRedisChatMessageHistory(
+        session_id=userid,
+        url=os.getenv("REDIS_URL"),
+        token=os.getenv("REDIS_TOKEN"),
+    )
+    memory = ConversationBufferMemory(
+        return_messages=True,
+        chat_memory=history,
+    )
+
     temp = """
     너는 '부마톡'이라는 챗봇이야.  
     부산소프트웨어마이스터고의 정보를 **정확하고 신뢰성 있게** 제공하는 역할을 해.  
@@ -84,13 +98,15 @@ def bumatalk(req):
     llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
     react_prompt = hub.pull("hwchase17/react")
     react_agent = create_react_agent(prompt=react_prompt, llm=llm, tools=tools_from_agent)
-    agent_axecutor = AgentExecutor(agent=react_agent, tools=tools_from_agent, verbose=True, handle_parsing_errors=True, max_iterations=5)
+    agent_axecutor = AgentExecutor(agent=react_agent, tools=tools_from_agent, verbose=True, handle_parsing_errors=True, max_iterations=5, memory=memory)
     today = datetime.now().strftime("%Y%m%d")
-    res = agent_axecutor.invoke({"input" : prompt.format_prompt(today=today,question=req)})
+    res = agent_axecutor.invoke({"input" : prompt.format_prompt(today=today,question=req).to_string()})
     print(res["output"])
     if res["output"] == "Agent stopped due to iteration limit or time limit.":
         return "제가 더 이해하기 쉽도록 말씀해주실 수 있을까요? 😅"
     return res["output"]
 
 if __name__ == "__main__":
-    bumatalk("독서로 마역량 최대 몇점 쌓을 수 있어?")
+    tic = datetime.now()
+    bumatalk("2024년 3월 30일 급식 알려줘", "-1")
+    print(datetime.now() - tic)

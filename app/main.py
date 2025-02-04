@@ -13,6 +13,7 @@ async def reply(request: Request):
         content = await request.json()
         req = content["userRequest"]["utterance"]
         callback_url = content["userRequest"]["callbackUrl"]
+        userid = content["userRequest"]["user"]["id"]
     except KeyError as e:
         print(f"요청 데이터 오류: {e}")
         return {"error": f"Invalid request data: {str(e)}"}
@@ -26,7 +27,7 @@ async def reply(request: Request):
 
     async def sendResponse():
         try:
-            res = bumatalk(req)
+            res = bumatalk(req, userid)
             responseBody = create_response_body(res)
             async with httpx.AsyncClient() as client:
                 await client.post(callback_url, json=responseBody)

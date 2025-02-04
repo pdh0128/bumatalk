@@ -10,4 +10,4 @@ pinecone
 langchain-pinecone
 selenium
 webdriver-manager
-
+upstash_redis
