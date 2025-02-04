@@ -23,6 +23,13 @@ tools_from_agent = [
             description="부산소프트웨어마이스터고 재학생들이 작성한, 선생님 한 개인에 대한 정보를 제공하는 도구야. 특정 개인만의 정보를 참조할 수 있어."
         ),
         Tool(
+                name="마이스터 역량 점수 정보 도구",
+                func=maister,
+                description=(
+                    "마이스터 역량(마역량)에 대한 정보를 제공하는 도구입니다. "
+                    "마역량 점수의 기준, 활용 방법, 혜택 등을 알 수 있습니다."
+        )),
+        Tool(
             name="기본 응답",
             func= bssm,
             description="정보를 검색할 수 있는 도구"
@@ -41,7 +48,12 @@ tools_from_agent = [
             name="관련이 없는 주제일 때 사용할 수 있는 도구",
             func=iDontKnow,
             description="관련이 없는 주제일 때 사용할 수 있는 도구야. 항상 마지막에 고려해야해"
-        )
+        ),
+    Tool(
+        name="부마톡의 규칙을 설명해주는 도구",
+        func=howToUse,
+        description="부마톡의 규칙(사용법)을 설명해주는 도구"
+    ),
     ]
 
 def bumatalk(req):
@@ -68,7 +80,6 @@ def bumatalk(req):
     🎯 질문: {question}  
     📝 답변: 
     """
-
     prompt = PromptTemplate(input_variables=["today", "question"], template=temp)
     llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
     react_prompt = hub.pull("hwchase17/react")
@@ -82,4 +93,4 @@ def bumatalk(req):
     return res["output"]
 
 if __name__ == "__main__":
-    bumatalk("2024년 3월 4일에 시간표 뭐야? 나 1학년 3반이야")
+    bumatalk("독서로 마역량 최대 몇점 쌓을 수 있어?")

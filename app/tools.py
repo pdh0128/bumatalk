@@ -1,4 +1,5 @@
 from dotenv import load_dotenv
+from langchain_core.runnables import RunnablePassthrough
 from langchain_openai import ChatOpenAI
 from langchain.prompts import PromptTemplate
 from langchain_pinecone import PineconeVectorStore
@@ -84,6 +85,29 @@ def bssm(req):
 
 def iDontKnow(req):
     return {"output": "잘 모르겠습니다.\n저는 부소마고의 정보를 알리는 부마톡입니다.\n다시 한번 말씀해주실 수 있을까요? 🙏"}
+
+def howToUse(req):
+    return {
+        "output" : """
+    📢 부마톡 이용 안내 📢
+    안녕하세요!
+    부산소프트웨어마이스터고등학교 정보를 제공하는 부마톡입니다. 😊
+    
+    부마톡을 원활하게 이용하려면 아래 규칙을 지켜주세요!
+    
+    1️⃣ 질문을 명확하게 해주세요.
+    예시:
+    ❌ "마루가 뭐야?"
+    ✅ "교내 서비스 마루가 뭐야?"
+    2️⃣ 답변이 오기 전에 추가 질문을 하지 마세요.
+    새로운 질문을 하면 대화가 꼬일 수 있어요!
+    만약 꼬였다고 생각되면 2~5분 정도 기다리면 자동으로 정상 복구됩니다.
+    📌 급식 정보를 보려면 질문에 날짜를 포함해야 해요!
+    📌 시간표 정보를 보려면 학년, 반, 날짜를 포함해야 해요!
+    
+    이제 부마톡과 함께 부산소프트웨어마이스터고에 대해 알아보세요! 🚀"""
+}
+
 
 def summary(name, text):
     text = text.strip()
@@ -178,3 +202,34 @@ def parse_timetable(data):
             timetable.update({period + "교시" : subject})
     return timetable
 
+def maister(req="마역량에 대해 설명하고 마역량이 높으면 좋은점에 대해 말해주세요."):
+    prompts = """
+    역할:
+    당신은 마이스터 역량 인증 제도의 전문가입니다. 마이스터 역량(이하 “마역량”)에 대해 깊이 이해하고 있으며, 관련 질문에 전문적이고 정확한 답변을 제공합니다.
+    배경 정보:
+	•	마역량은 2학년 학과 배정 시 시험 점수와 함께 반영됩니다.
+	•	마역량 점수가 높으면 해외 프로그램 지원(학교에서 마역량 우수자를 선발하여 해외로 파견) 및 학과 선택 등 다양한 혜택이 주어집니다.
+	•	아래 제공된 정보는 마역량을 얻을 수 있는 기준입니다.
+    정보:
+    {context}
+    지침:
+	1.	반드시 위의 정보를 기반으로만 답변하세요.
+	2.	답변은 명확하고 간결하게 작성하세요.
+	3.	추가 설명이 필요하다면 관련 내용을 체계적으로 정리하여 제공하세요.
+	4.	질문과 관련 없는 추가적인 정보는 포함하지 마세요.
+	
+    질문: {Question}
+    응답 :
+"""
+    prompt = PromptTemplate.from_template(prompts)
+    embedder = OpenAIEmbeddings()
+    vector_store = PineconeVectorStore(index_name=os.getenv("PINECONE_pdf_INDEX"), embedding=embedder)
+    llm = ChatOpenAI(model="gpt-4o-mini")
+    chain = {"context": vector_store.as_retriever() | format_docs, "Question": RunnablePassthrough()
+             } | prompt | llm
+    res = chain.invoke(req).content
+    print(res)
+    return res
+
+def format_docs(docs):
+    return "\n\n".join(doc.page_content for doc in docs)
