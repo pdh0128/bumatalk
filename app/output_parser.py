@@ -10,3 +10,11 @@ class schoolTimer(BaseModel):
         return {"grade": self.grade, "classroom": self.classroom, "date": self.date}
 
 schoolTimeOuputParser = PydanticOutputParser(pydantic_object=schoolTimer)
+
+class schoolScheduler(BaseModel):
+    frist_date: str = Field(description="시작 날짜")
+    last_date: str = Field(description="마지막 날짜")
+    def to_dict(self) -> Dict[str, str]:
+        return {"first_date": self.frist_date, "last_date": self.last_date}
+
+schoolScheduleOutputParser = PydanticOutputParser(pydantic_object=schoolScheduler)

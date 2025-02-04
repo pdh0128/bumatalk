@@ -39,6 +39,11 @@ tools_from_agent = [
             description="정보를 검색할 수 있는 도구"
         ),
         Tool(
+            name="학교 학사일정 정보",
+            func=schoolSchedule,
+            description='{"frist_date": "20240218", "last_date": "20240316"} 형식으로 시작 날짜와 마지막 날짜를 입력하면, 해당 기간 동안의 학사일정을 확인할 수 있습니다.'
+        ),
+        Tool(
             name="학교 급식 정보",
             func = schoolFood,
             description="20240627과 같은 형식의 날짜를 입력하면 해당 날짜의 급식 정보를 확인할 수 있습니다."
@@ -108,5 +113,5 @@ def bumatalk(req, userid):
 
 if __name__ == "__main__":
     tic = datetime.now()
-    bumatalk("2024년 3월 30일 급식 알려줘", "-1")
+    bumatalk("다음 주에 학교 뭐 해?", "-1")
     print(datetime.now() - tic)

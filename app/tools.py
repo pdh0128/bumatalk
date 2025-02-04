@@ -9,14 +9,13 @@ from pinecone import Pinecone
 from mongo import Mongo
 from langchain_core.output_parsers import StrOutputParser
 import requests
-from datetime import datetime
+from datetime import datetime, date
 from langchain_community.chat_models import ChatPerplexity
 from langchain_core.prompts import ChatPromptTemplate
 
 from langchain.globals import set_llm_cache
 from langchain_community.cache import InMemoryCache
-
-from output_parser import schoolTimeOuputParser
+from output_parser import *
 
 set_llm_cache(InMemoryCache())
 
@@ -31,6 +30,7 @@ def checkNone(res):
         return {"output": " ❌ 검색 실패 ❌"}
     return res
 def student(req):
+    """학생 정보를 처리합니다."""
     temp = """
         너는 부산소프트웨어마이스터고의 학생 {name}에 대해 잘 알고 있는 전문가야.
         주어진 질문에 대해 학생 {name}의 정보를 바탕으로 답변해. 
@@ -49,6 +49,7 @@ def student(req):
     return res
 
 def teacher(req):
+    """선생님의 정보를 처리합니다."""
     temp = """
         너는 부산소프트웨어마이스터고의 선생님 {name}에 대해 잘 알고 있는 전문가야.
         주어진 질문에 대해 선생님 {name}의 정보를 바탕으로 답변해. 
@@ -67,6 +68,7 @@ def teacher(req):
     return res
 
 def bssm(req):
+    """사용 가능한 도구가 없거나 적합한 도구를 찾지 못했을 때 제공되는 기본 응답입니다."""
     temp = """
         너는 부산소프트웨어마이스터고등학교에 대한 전문가야.
         사용자가 묻는 모든 질문에 대해 정확하고 친절하며, 필요한 경우 상세한 정보를 제공해줘.
@@ -87,6 +89,7 @@ def iDontKnow(req):
     return {"output": "잘 모르겠습니다.\n저는 부소마고의 정보를 알리는 부마톡입니다.\n다시 한번 말씀해주실 수 있을까요? 🙏"}
 
 def howToUse(req):
+    """부마톡 방법을 반환합니다."""
     return {
         "output" : """
     📢 부마톡 이용 안내 📢
@@ -128,6 +131,7 @@ def summary(name, text):
 
 
 def schoolFood(req):
+    """학교 급식 정보를 처리합니다."""
     url = "https://open.neis.go.kr/hub/mealServiceDietInfo"
     params = {
         "ATPT_OFCDC_SC_CODE": "C10",
@@ -167,11 +171,12 @@ def food_parsing(data):
 
 
 def schoolTime(req):
+    """학교 시간표 정보를 처리합니다."""
     url = "https://open.neis.go.kr/hub/hisTimetable"
     data_dict = schoolTimeOuputParser.parse(req).to_dict()
     date = data_dict["date"]
     grade = data_dict["grade"]
-    group = data_dict["classroom"]
+    group = data_dict["classro를m"]
     params = {
         "ATPT_OFCDC_SC_CODE": "C10",
         "SD_SCHUL_CODE": "7150658",
@@ -203,6 +208,7 @@ def parse_timetable(data):
     return timetable
 
 def maister(req="마역량에 대해 설명하고 마역량이 높으면 좋은점에 대해 말해주세요."):
+    """마역량 관련 정보를 처리합니다."""
     prompts = """
     역할:
     당신은 마이스터 역량 인증 제도의 전문가입니다. 마이스터 역량(이하 “마역량”)에 대해 깊이 이해하고 있으며, 관련 질문에 전문적이고 정확한 답변을 제공합니다.
@@ -233,3 +239,52 @@ def maister(req="마역량에 대해 설명하고 마역량이 높으면 좋은�
 
 def format_docs(docs):
     return "\n\n".join(doc.page_content for doc in docs)
+
+def schoolSchedule (req):
+    """학교 학사일정 정보 처리합니다."""
+    data_dict = schoolScheduleOutputParser.parse(req).to_dict()
+    url = "https://open.neis.go.kr/hub/SchoolSchedule"
+    first = data_dict["first_date"]
+    last = data_dict["last_date"]
+    params = {
+        "ATPT_OFCDC_SC_CODE": "C10",
+        "SD_SCHUL_CODE": "7150658",
+        "KEY": os.getenv("SCHOOLD_OPENAPI_API_KEY"),
+        "Type": "json",
+        "AA_FROM_YMD": first,
+        "AA_TO_YMD": last
+    }
+    res = requests.get(url, params=params)
+    if res.status_code == 200:
+        data = res.json()
+        event = parse_school_schedule(data)
+        print(event)
+        return event
+    else:
+        print(f"요청 실패! 상태 코드: {res.status_code}")
+        print(res.text)
+        return "요청 실패"
+
+def parse_school_schedule(data):
+    events = data["SchoolSchedule"][1]["row"]
+    parsed_events = []
+
+    for event in events:
+        date = event["AA_YMD"]
+        event_name = event["EVENT_NM"]
+        event_type = event["SBTR_DD_SC_NM"]
+        grades = []
+        if event["ONE_GRADE_EVENT_YN"] == "Y":
+            grades.append("1학년")
+        if event["TW_GRADE_EVENT_YN"] == "Y":
+            grades.append("2학년")
+        if event["THREE_GRADE_EVENT_YN"] == "Y":
+            grades.append("3학년")
+
+        parsed_events.append({
+            "날짜": date,
+            "이벤트 이름": event_name,
+            "이벤트 유형": event_type,
+            "대상 학년": ", ".join(grades)
+        })
+    return parsed_events
