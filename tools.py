@@ -7,12 +7,13 @@ import os
 from pinecone import Pinecone
 from mongo import Mongo
 from langchain_core.output_parsers import StrOutputParser
-
+import requests
+from datetime import datetime
 from langchain_community.chat_models import ChatPerplexity
 from langchain_core.prompts import ChatPromptTemplate
 
 from langchain.globals import set_llm_cache
-from langchain.cache import InMemoryCache
+from langchain_community.cache import InMemoryCache
 
 set_llm_cache(InMemoryCache())
 
@@ -99,3 +100,43 @@ def summary(name, text):
     res = chain.invoke(input={"name" : name, "sentence": text})
     return res
 
+
+def schoolFood(req):
+    url = "https://open.neis.go.kr/hub/mealServiceDietInfo"
+    # today = "20240627"
+    params = {
+        "ATPT_OFCDC_SC_CODE": "C10",
+        "SD_SCHUL_CODE": "7150658",
+        "KEY": os.getenv("SCHOOLD_OPENAPI_API_KEY"),
+        "Type" : "json",
+        "MLSV_YMD": req
+    }
+    res = requests.get(url, params=params)
+    if res.status_code == 200:
+        # print(res.json())
+        data = res.json()
+        meals = food_parsing(data)
+        print(meals)
+        return meals
+    else:
+        print(f"요청 실패! 상태 코드: {res.status_code}")
+        print(res.text)
+
+def food_parsing(data):
+    meals = {"조식": None, "중식": None, "석식": None}
+    if "mealServiceDietInfo" in data:
+        rows = data["mealServiceDietInfo"][1]["row"]
+    else:
+        return meals
+
+    for meal in rows:
+        meal_name = meal["MMEAL_SC_NM"]
+        meals[meal_name] = {
+            "날짜": meal["MLSV_YMD"],
+            "메뉴": meal["DDISH_NM"].replace("<br/>", "\n"),
+            "칼로리 정보": meal["CAL_INFO"],
+            "영양 정보": meal["NTR_INFO"].replace("<br/>", "\n")
+        }
+    return meals
+if __name__ == "__main__":
+    schoolFood(None)

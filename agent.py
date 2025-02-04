@@ -6,7 +6,7 @@ from langchain import hub
 from langchain.tools import Tool
 from tools import *
 from langchain.globals import set_llm_cache
-from langchain.cache import InMemoryCache
+from langchain_community.cache import InMemoryCache
 
 set_llm_cache(InMemoryCache())
 load_dotenv()
@@ -27,6 +27,11 @@ tools_from_agent = [
             func= bssm,
             description="정보를 검색할 수 있는 도구"
         ),
+        Tool(
+            name="학교 급식 정보",
+            func = schoolFood,
+            description="20240627과 같은 형식의 날짜를 입력하면 해당 날짜의 급식 정보를 확인할 수 있습니다."
+        ),
     Tool(
         name="관련이 없는 주제일 때 사용할 수 있는 도구",
         func=iDontKnow,
@@ -38,7 +43,8 @@ def bumatalk(req):
     temp = """
     너는 '부마톡'이라는 챗봇이야.  
     부산소프트웨어마이스터고의 정보를 **정확하고 신뢰성 있게** 제공하는 역할을 해.  
-
+    오늘 날짜는 {today}이야.
+    
     📌 **답변 규칙**     
     1. **항상 한글로 대답**해야 해.  
     2. **줄바꿈을 활용해 가독성을 높여야** 해.  
@@ -58,16 +64,17 @@ def bumatalk(req):
     📝 답변: 
     """
 
-    prompt = PromptTemplate(input_variables=["question"], template=temp)
+    prompt = PromptTemplate(input_variables=["today", "question"], template=temp)
     llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
     react_prompt = hub.pull("hwchase17/react")
     react_agent = create_react_agent(prompt=react_prompt, llm=llm, tools=tools_from_agent)
     agent_axecutor = AgentExecutor(agent=react_agent, tools=tools_from_agent, verbose=True, handle_parsing_errors=True, max_iterations=5)
-    res = agent_axecutor.invoke({"input" : prompt.format_prompt(question=req)})
+    today = datetime.now().strftime("%Y%m%d")
+    res = agent_axecutor.invoke({"input" : prompt.format_prompt(today=today,question=req)})
     print(res["output"])
     if res["output"] == "Agent stopped due to iteration limit or time limit.":
         return "제가 더 이해하기 쉽도록 말씀해주실 수 있을까요? 😅"
     return res["output"]
 
 if __name__ == "__main__":
-    bumatalk("김기태 선생님에 대해 알려줘")
+    bumatalk("3월 28일에 급식 뭐 나와??")
