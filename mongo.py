@@ -3,7 +3,7 @@ from dotenv import load_dotenv
 import os
 load_dotenv()
 class Mongo:
-    client = MongoClient(host=os.getenv("MONGO_HOST"), port=int(os.getenv("MONGO_PORT")))
+    client = MongoClient(host=os.getenv("MONGO_HOST"," mongodb"), port=int(os.getenv("MONGO_PORT", 27017)))
     db = client['Bumatalk']
 
     def insertStudent(self, name, text, url):
