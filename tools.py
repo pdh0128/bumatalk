@@ -15,6 +15,8 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain.globals import set_llm_cache
 from langchain_community.cache import InMemoryCache
 
+from output_parser import schoolTimeOuputParser
+
 set_llm_cache(InMemoryCache())
 
 load_dotenv()
@@ -103,7 +105,6 @@ def summary(name, text):
 
 def schoolFood(req):
     url = "https://open.neis.go.kr/hub/mealServiceDietInfo"
-    # today = "20240627"
     params = {
         "ATPT_OFCDC_SC_CODE": "C10",
         "SD_SCHUL_CODE": "7150658",
@@ -138,5 +139,42 @@ def food_parsing(data):
             "영양 정보": meal["NTR_INFO"].replace("<br/>", "\n")
         }
     return meals
-if __name__ == "__main__":
-    schoolFood(None)
+
+
+
+def schoolTime(req):
+    url = "https://open.neis.go.kr/hub/hisTimetable"
+    data_dict = schoolTimeOuputParser.parse(req).to_dict()
+    date = data_dict["date"]
+    grade = data_dict["grade"]
+    group = data_dict["classroom"]
+    params = {
+        "ATPT_OFCDC_SC_CODE": "C10",
+        "SD_SCHUL_CODE": "7150658",
+        "KEY": os.getenv("SCHOOLD_OPENAPI_API_KEY"),
+        "Type": "json",
+        "ALL_TI_YMD": date,
+        "GRADE" : grade,
+        "CLASS_NM" : group
+    }
+    res = requests.get(url, params=params)
+    if res.status_code == 200:
+        # print(res.json())
+        data = res.json()
+        time = parse_timetable(data)
+        return time
+    else:
+        print(f"요청 실패! 상태 코드: {res.status_code}")
+        print(res.text)
+        return "요청 실패"
+
+def parse_timetable(data):
+    timetable = {}
+    if "hisTimetable" in data:
+        rows = data["hisTimetable"][1]["row"]
+        for entry in rows:
+            period = entry.get("PERIO", "")
+            subject = entry.get("ITRT_CNTNT", "")
+            timetable.update({period + "교시" : subject})
+    return timetable
+

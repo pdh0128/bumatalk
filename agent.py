@@ -32,11 +32,16 @@ tools_from_agent = [
             func = schoolFood,
             description="20240627과 같은 형식의 날짜를 입력하면 해당 날짜의 급식 정보를 확인할 수 있습니다."
         ),
-    Tool(
-        name="관련이 없는 주제일 때 사용할 수 있는 도구",
-        func=iDontKnow,
-        description="관련이 없는 주제일 때 사용할 수 있는 도구야. 항상 마지막에 고려해야해"
-    )
+        Tool(
+            name="학교 시간표 정보",
+            func=schoolTime,
+            description='{"grade" : "1", "classroom" : "3", "date" : "20240618"} 과 같은 형식의 학년, 반, 날짜를 입력하면 시간표 정보를 확인할 수 있습니다.'
+        ),
+        Tool(
+            name="관련이 없는 주제일 때 사용할 수 있는 도구",
+            func=iDontKnow,
+            description="관련이 없는 주제일 때 사용할 수 있는 도구야. 항상 마지막에 고려해야해"
+        )
     ]
 
 def bumatalk(req):
@@ -77,4 +82,4 @@ def bumatalk(req):
     return res["output"]
 
 if __name__ == "__main__":
-    bumatalk("3월 28일에 급식 뭐 나와??")
+    bumatalk("2024년 3월 4일에 시간표 뭐야? 나 1학년 3반이야")
