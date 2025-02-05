@@ -17,7 +17,7 @@ async def reply(request: Request):
         userid = content["userRequest"]["user"]["id"]
     except KeyError as e:
         print(f"요청 데이터 오류: {e}")
-        return {"error": f"Invalid request data: {str(e)}"}
+        return {"error": f"Invalid request data"}
     callbackResponse = {
         "version": "2.0",
         "useCallback": True,

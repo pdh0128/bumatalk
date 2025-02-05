@@ -115,13 +115,4 @@ def bumatalk(req, userid):
     react_agent = create_react_agent(prompt=react_prompt, llm=llm, tools=tools_from_agent)
     agent_axecutor = AgentExecutor(agent=react_agent, tools=tools_from_agent, verbose=True, handle_parsing_errors=True, max_iterations=5, memory=memory)
     today = datetime.now().strftime("%Y%m%d")
-    res = agent_axecutor.invoke({"input" : prompt.format_prompt(today=today,user=user,question=req).to_string()})
-    print(res["output"])
-    if res["output"] == "Agent stopped due to iteration limit or time limit.":
-        return "제가 더 이해하기 쉽도록 말씀해주실 수 있을까요? 😅"
-    return res["output"]
-
-if __name__ == "__main__":
-    tic = datetime.now()
-    bumatalk("나에 대해 알아?", "-1")
-    print(datetime.now() - tic)
+    res = agent_axecutor.invoke({"input" : prompt.format_prompt(today=today,user=user,quest

@@ -83,14 +83,13 @@ def bssm(req):
         답변:
         """
     llm = ChatPerplexity(
-        temperature=0, model="sonar-pro"
+        temperature=0, model="sonar"
     )
     prompt = PromptTemplate(input_variables=["Question"], template=temp)
     chain = prompt | llm | StrOutputParser()
     res = chain.invoke(input={"Question" : req})
     print(res)
     return res
-
 def iDontKnow(req):
     return {"output": "잘 모르겠습니다.\n저는 부소마고의 정보를 알리는 부마톡입니다.\n다시 한번 말씀해주실 수 있을까요? 🙏"}
 
@@ -288,71 +287,4 @@ def parse_school_schedule(data):
             grades.append("3학년")
 
         parsed_events.append({
-            "날짜": date,
-            "이벤트 이름": event_name,
-            "이벤트 유형": event_type,
-            "대상 학년": ", ".join(grades)
-        })
-    return parsed_events
-
-
-def extract_user_info(req):
-    llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
-    year = datetime.now().strftime("%H")
-    temp = """
-    사용자의 정보를 문장에서 추출하여 JSON 형식으로 반환하세요.  
-    
-    응답 형식 :
-    {format_instructions}
-    
-    MongoDB의 동적 스키마를 활용하므로, **정해진 데이터 구조가 없으며** 문장에서 추출 가능한 모든 정보를 유연하게 포함할 수 있습니다.
-    올해는 {year}입니다.
-      
-    📌 **규칙**  
-    1. 문장에서 **추론 가능한 정보는 모두 포함**하세요.  
-        - 예: 이름, 나이, 학년, 성적, 관심사 등등   
-    2. 문장에서 명확히 추출할 수 없는 정보는 포함하지 않습니다.  
-    3. 문장에서 정보를 전혀 추출할 수 없는 경우, 빈 JSON 객체 {{}}를 반환하세요.  
-    
-    🎯 **입력 예시**  
-    문장: "나는 중학교 3학년이고 성적이 낮은 편인데 부소마고에 입학할 수 있을까?"  
-    📝 **출력 예시**  
-    {{"나이": “16”,“학년”: “중학교 3학년”,“성적”: “낮은 편”}}
-
-    🎯 **입력 예시**  
-    문장: "저는 소프트웨어 개발에 관심이 많아요!"  
-    📝 **출력 예시**  
-    {{"관심사”: “소프트웨어 개발"}}
-    
-    📌 **추가 규칙**  
-    - 반환되는 JSON 객체는 MongoDB에서 바로 저장할 수 있는 형식이어야 합니다.  
-    - 중첩된 데이터가 필요한 경우, 중첩된 JSON 객체로 표현하세요.  
-    
-    문장 : {sentense}
-    응답 : 
-"""
-    parser = JsonOutputParser()
-    prompt = PromptTemplate(input_variables=["year", "sentense"], template=temp, partial_variables={"format_instructions": parser.get_format_instructions()})
-    chain = prompt | llm | parser
-    res = chain.invoke(input={"year" : year, "sentense" : req})
-    return res
-
-def initUser(userid):
-    try:
-        db.deleteUser(userid)
-        result = redis.delete("message_store:" + userid)
-        if result:
-            return 200
-        else:
-            return 201
-    except Exception as e:
-        print(f"error: {e}")
-        return 400
-def getUser(userid):
-    user = db.getUser(userid)
-    print(user)
-    if not user or user == "사용자 정보가 없습니다.":
-        return "사용자 정보가 없습니다."
-    userInfo = "\n".join([f"{key} : {value}" for key, value in user.items()])
-    print(userInfo)
-    return userInfo
+            "날짜"
