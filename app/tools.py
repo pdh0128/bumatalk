@@ -7,7 +7,7 @@ from langchain_openai import OpenAIEmbeddings
 import os
 from pinecone import Pinecone
 from mongo import Mongo
-from langchain_core.output_parsers import StrOutputParser
+from langchain_core.output_parsers import StrOutputParser, JsonOutputParser
 import requests
 from datetime import datetime, date
 from langchain_community.chat_models import ChatPerplexity
@@ -16,6 +16,8 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain.globals import set_llm_cache
 from langchain_community.cache import InMemoryCache
 from output_parser import *
+import json
+from upstash_redis import Redis
 
 set_llm_cache(InMemoryCache())
 
@@ -25,6 +27,10 @@ embedder = OpenAIEmbeddings()
 vector_store = PineconeVectorStore(index_name=os.getenv("PINECONE_INDEX"), embedding=embedder)
 pinecone_index = pc.Index(os.getenv("PINECONE_INDEX"))
 db = Mongo()
+redis_url = os.getenv("REDIS_URL")
+redis_token = os.getenv("REDIS_TOKEN")
+redis = Redis(url=redis_url, token=redis_token)
+
 def checkNone(res):
     if res is None:
         return {"output": " ❌ 검색 실패 ❌"}
@@ -176,7 +182,7 @@ def schoolTime(req):
     data_dict = schoolTimeOuputParser.parse(req).to_dict()
     date = data_dict["date"]
     grade = data_dict["grade"]
-    group = data_dict["classro를m"]
+    group = data_dict["classroom"]
     params = {
         "ATPT_OFCDC_SC_CODE": "C10",
         "SD_SCHUL_CODE": "7150658",
@@ -229,7 +235,7 @@ def maister(req="마역량에 대해 설명하고 마역량이 높으면 좋은�
 """
     prompt = PromptTemplate.from_template(prompts)
     embedder = OpenAIEmbeddings()
-    vector_store = PineconeVectorStore(index_name=os.getenv("PINECONE_pdf_INDEX"), embedding=embedder)
+    vector_store = PineconeVectorStore(index_name=os.getenv("PINECONE_PDF_INDEX"), embedding=embedder)
     llm = ChatOpenAI(model="gpt-4o-mini")
     chain = {"context": vector_store.as_retriever() | format_docs, "Question": RunnablePassthrough()
              } | prompt | llm
@@ -288,3 +294,65 @@ def parse_school_schedule(data):
             "대상 학년": ", ".join(grades)
         })
     return parsed_events
+
+
+def extract_user_info(req):
+    llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
+    year = datetime.now().strftime("%H")
+    temp = """
+    사용자의 정보를 문장에서 추출하여 JSON 형식으로 반환하세요.  
+    
+    응답 형식 :
+    {format_instructions}
+    
+    MongoDB의 동적 스키마를 활용하므로, **정해진 데이터 구조가 없으며** 문장에서 추출 가능한 모든 정보를 유연하게 포함할 수 있습니다.
+    올해는 {year}입니다.
+      
+    📌 **규칙**  
+    1. 문장에서 **추론 가능한 정보는 모두 포함**하세요.  
+        - 예: 이름, 나이, 학년, 성적, 관심사 등등   
+    2. 문장에서 명확히 추출할 수 없는 정보는 포함하지 않습니다.  
+    3. 문장에서 정보를 전혀 추출할 수 없는 경우, 빈 JSON 객체 {{}}를 반환하세요.  
+    
+    🎯 **입력 예시**  
+    문장: "나는 중학교 3학년이고 성적이 낮은 편인데 부소마고에 입학할 수 있을까?"  
+    📝 **출력 예시**  
+    {{"나이": “16”,“학년”: “중학교 3학년”,“성적”: “낮은 편”}}
+
+    🎯 **입력 예시**  
+    문장: "저는 소프트웨어 개발에 관심이 많아요!"  
+    📝 **출력 예시**  
+    {{"관심사”: “소프트웨어 개발"}}
+    
+    📌 **추가 규칙**  
+    - 반환되는 JSON 객체는 MongoDB에서 바로 저장할 수 있는 형식이어야 합니다.  
+    - 중첩된 데이터가 필요한 경우, 중첩된 JSON 객체로 표현하세요.  
+    
+    문장 : {sentense}
+    응답 : 
+"""
+    parser = JsonOutputParser()
+    prompt = PromptTemplate(input_variables=["year", "sentense"], template=temp, partial_variables={"format_instructions": parser.get_format_instructions()})
+    chain = prompt | llm | parser
+    res = chain.invoke(input={"year" : year, "sentense" : req})
+    return res
+
+def initUser(userid):
+    try:
+        db.deleteUser(userid)
+        result = redis.delete("message_store:" + userid)
+        if result:
+            return 200
+        else:
+            return 201
+    except Exception as e:
+        print(f"error: {e}")
+        return 400
+def getUser(userid):
+    user = db.getUser(userid)
+    print(user)
+    if not user or user == "사용자 정보가 없습니다.":
+        return "사용자 정보가 없습니다."
+    userInfo = "\n".join([f"{key} : {value}" for key, value in user.items()])
+    print(userInfo)
+    return userInfo

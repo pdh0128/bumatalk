@@ -64,7 +64,7 @@ tools_from_agent = [
         description="부마톡의 규칙(사용법)을 설명해주는 도구"
     ),
     ]
-
+db = Mongo()
 def bumatalk(req, userid):
     history = UpstashRedisChatMessageHistory(
         session_id=userid,
@@ -75,11 +75,16 @@ def bumatalk(req, userid):
         return_messages=True,
         chat_memory=history,
     )
-
+    userInfo = extract_user_info(req)
+    if userInfo:
+        db.insertUser(userid, **userInfo)
+    user = db.getUser(userid)
+    print(user)
     temp = """
     너는 '부마톡'이라는 챗봇이야.  
     부산소프트웨어마이스터고의 정보를 **정확하고 신뢰성 있게** 제공하는 역할을 해.  
     오늘 날짜는 {today}이야.
+    
     
     📌 **답변 규칙**     
     1. **항상 한글로 대답**해야 해.  
@@ -96,16 +101,21 @@ def bumatalk(req, userid):
     - 중학교 내신 성적은 석차백분율(%)로 평가되며,  
       석차 백분율이 낮을수록 성적이 높은 거야.  
 
+    📌 **사용자 정보**
+    아래에는 json 형식으로 사용자의 정보가 포함되어 있어.  
+    이를 활용해 맞춤형 답변을 생성할 수 있어.
+    사용자 : {user}
+    
     🎯 질문: {question}  
     📝 답변: 
     """
-    prompt = PromptTemplate(input_variables=["today", "question"], template=temp)
+    prompt = PromptTemplate(input_variables=["today", "user", "question"], template=temp)
     llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
     react_prompt = hub.pull("hwchase17/react")
     react_agent = create_react_agent(prompt=react_prompt, llm=llm, tools=tools_from_agent)
     agent_axecutor = AgentExecutor(agent=react_agent, tools=tools_from_agent, verbose=True, handle_parsing_errors=True, max_iterations=5, memory=memory)
     today = datetime.now().strftime("%Y%m%d")
-    res = agent_axecutor.invoke({"input" : prompt.format_prompt(today=today,question=req).to_string()})
+    res = agent_axecutor.invoke({"input" : prompt.format_prompt(today=today,user=user,question=req).to_string()})
     print(res["output"])
     if res["output"] == "Agent stopped due to iteration limit or time limit.":
         return "제가 더 이해하기 쉽도록 말씀해주실 수 있을까요? 😅"
@@ -113,5 +123,5 @@ def bumatalk(req, userid):
 
 if __name__ == "__main__":
     tic = datetime.now()
-    bumatalk("다음 주에 학교 뭐 해?", "-1")
+    bumatalk("나에 대해 알아?", "-1")
     print(datetime.now() - tic)

@@ -13,7 +13,7 @@ def store():
     spliter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=100, separator="\n")
     text = spliter.split_documents(documment)
     embedder = OpenAIEmbeddings()
-    PineconeVectorStore.from_documents(documents=text, embedding=embedder, index_name=os.getenv("PINECONE_pdf_INDEX"))
+    PineconeVectorStore.from_documents(documents=text, embedding=embedder, index_name=os.getenv("PINECONE_PDF_INDEX"))
 
 if __name__ == "__main__":
     store()

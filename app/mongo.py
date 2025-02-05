@@ -42,3 +42,30 @@ class Mongo:
         col = self.db['teacher']
         teacher_id = col.find_one({"name": name})
         return teacher_id
+
+    def insertUser(self, userid, **kwargs):
+        col = self.db['user']
+        kwargs["userid"] = userid
+        if col.find_one({"userid": userid}):
+            # 이미 있음
+            mongoUserid = col.update_one({"userid": userid}, {"$set": kwargs})
+        else:
+            mongoUserid = col.insert_one(kwargs)
+        return mongoUserid
+
+    def getUser(self, userid):
+        col = self.db['user']
+        if col.find_one({"userid": userid}):
+            user = col.find_one({"userid": userid}, {"_id": 0, "userid": 0})
+            return user
+        else:
+            return "사용자 정보가 없습니다."
+
+
+    def deleteUser(self, userid):
+        col = self.db['user']
+        if col.find_one({"userid": userid}):
+            mongoUserid = col.delete_one({"userid": userid})
+        else:
+            mongoUserid = -1
+        return mongoUserid
