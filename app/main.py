@@ -28,7 +28,7 @@ async def reply(request: Request):
 
     async def sendResponse():
         try:
-            res = bumatalk(req, userid)
+            res = await asyncio.gather(bumatalk(req, userid))
             responseBody = create_response_body(res)
             async with httpx.AsyncClient() as client:
                 await client.post(callback_url, json=responseBody)

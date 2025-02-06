@@ -1,11 +1,17 @@
+import asyncio
+
+import httpx
 from dotenv import load_dotenv
 from langchain_core.runnables import RunnablePassthrough
+from langchain_core.tools import tool
 from langchain_openai import ChatOpenAI
 from langchain.prompts import PromptTemplate
 from langchain_pinecone import PineconeVectorStore
 from langchain_openai import OpenAIEmbeddings
 import os
 from pinecone import Pinecone
+from pip._internal import req
+
 from mongo import Mongo
 from langchain_core.output_parsers import StrOutputParser, JsonOutputParser
 import requests
@@ -35,7 +41,7 @@ def checkNone(res):
     if res is None:
         return {"output": " ❌ 검색 실패 ❌"}
     return res
-def student(req):
+async def student(req):
     """학생 정보를 처리합니다."""
     temp = """
         너는 부산소프트웨어마이스터고의 학생 {name}에 대해 잘 알고 있는 전문가야.
@@ -47,14 +53,14 @@ def student(req):
     query_vecter = embedder.embed_query(req)
     results = pinecone_index.query(vector=query_vecter, top_k=1, include_metadata=True)
     student_url = results['matches'][0]['id']
-    student = db.getStudent(student_url)
+    student = await db.getStudent(student_url)
     llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
     chain = prompt | llm | StrOutputParser()
     res = chain.invoke(input={"name" : student['name'], "Info" : student["text"], "Question" : req})
     print(res)
     return res
 
-def teacher(req):
+async def teacher(req):
     """선생님의 정보를 처리합니다."""
     temp = """
         너는 부산소프트웨어마이스터고의 선생님 {name}에 대해 잘 알고 있는 전문가야.
@@ -66,14 +72,14 @@ def teacher(req):
     query_vecter = embedder.embed_query(req)
     results = pinecone_index.query(vector=query_vecter, top_k=1, include_metadata=True)
     teacher_url = results['matches'][0]['id']
-    teacher = db.getTeacher(teacher_url)
+    teacher = await db.getTeacher(teacher_url)
     llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
     chain = prompt | llm | StrOutputParser()
     res = chain.invoke(input={"name" : teacher['name'], "Info" : teacher["text"], "Question" : req})
     print(res)
     return res
 
-def bssm(req):
+async def bssm(req):
     """사용 가능한 도구가 없거나 적합한 도구를 찾지 못했을 때 제공되는 기본 응답입니다."""
     temp = """
         너는 부산소프트웨어마이스터고등학교에 대한 전문가야.
@@ -117,7 +123,7 @@ def howToUse(req):
 }
 
 
-def summary(name, text):
+async def summary(name, text):
     text = text.strip()
     if text == "" or text is None:
         return "문서가 비어있습니다."
@@ -134,8 +140,7 @@ def summary(name, text):
     res = chain.invoke(input={"name" : name, "sentence": text})
     return res
 
-
-def schoolFood(req):
+async def schoolFood(req):
     """학교 급식 정보를 처리합니다."""
     url = "https://open.neis.go.kr/hub/mealServiceDietInfo"
     params = {
@@ -145,16 +150,17 @@ def schoolFood(req):
         "Type" : "json",
         "MLSV_YMD": req
     }
-    res = requests.get(url, params=params)
-    if res.status_code == 200:
-        # print(res.json())
-        data = res.json()
-        meals = food_parsing(data)
-        print(meals)
-        return meals
-    else:
-        print(f"요청 실패! 상태 코드: {res.status_code}")
-        print(res.text)
+    async with httpx.AsyncClient(timeout=30) as client:
+        res = await client.get(url, params=params)
+        if res.status_code == 200:
+            data = res.json()
+            meals = food_parsing(data)
+            print(meals)
+            return meals
+        else:
+            print(f"요청 실패! 상태 코드: {res.status_code}")
+            print(res.text)
+            return None
 
 def food_parsing(data):
     meals = {"조식": None, "중식": None, "석식": None}
@@ -175,7 +181,7 @@ def food_parsing(data):
 
 
 
-def schoolTime(req):
+async def schoolTime(req):
     """학교 시간표 정보를 처리합니다."""
     url = "https://open.neis.go.kr/hub/hisTimetable"
     data_dict = schoolTimeOuputParser.parse(req).to_dict()
@@ -191,17 +197,17 @@ def schoolTime(req):
         "GRADE" : grade,
         "CLASS_NM" : group
     }
-    res = requests.get(url, params=params)
-    if res.status_code == 200:
-        # print(res.json())
-        data = res.json()
-        time = parse_timetable(data)
-        return time
-    else:
-        print(f"요청 실패! 상태 코드: {res.status_code}")
-        print(res.text)
-        return "요청 실패"
 
+    async with httpx.AsyncClient(timeout=30) as client:
+        res = await client.get(url, params=params)
+        if res.status_code == 200:
+            data = res.json()
+            time = parse_timetable(data)
+            return time
+        else:
+            print(f"요청 실패! 상태 코드: {res.status_code}")
+            print(res.text)
+            return "요청 실패"
 def parse_timetable(data):
     timetable = {}
     if "hisTimetable" in data:
@@ -212,7 +218,7 @@ def parse_timetable(data):
             timetable.update({period + "교시" : subject})
     return timetable
 
-def maister(req="마역량에 대해 설명하고 마역량이 높으면 좋은점에 대해 말해주세요."):
+async def maister(req="마역량에 대해 설명하고 마역량이 높으면 좋은점에 대해 말해주세요."):
     """마역량 관련 정보를 처리합니다."""
     prompts = """
     역할:
@@ -245,32 +251,53 @@ def maister(req="마역량에 대해 설명하고 마역량이 높으면 좋은�
 def format_docs(docs):
     return "\n\n".join(doc.page_content for doc in docs)
 
-def schoolSchedule (req):
+async def schoolSchedule (req):
     """학교 학사일정 정보 처리합니다."""
     data_dict = schoolScheduleOutputParser.parse(req).to_dict()
     url = "https://open.neis.go.kr/hub/SchoolSchedule"
-    first = data_dict["first_date"]
-    last = data_dict["last_date"]
+    first_date = datetime.strptime(data_dict["first_date"], "%Y%m%d")
+    last_date = datetime.strptime(data_dict["last_date"], "%Y%m%d")
+
+    first_month = first_date.month - 1
+    if first_month == 0:
+        first_date = first_date.replace(year=first_date.year - 1, month=12)
+    else:
+        first_date = first_date.replace(month=first_month)
+
+    last_month = last_date.month + 1
+    if last_month == 13:
+        last_date = last_date.replace(year=last_date.year + 1, month=1)
+    else:
+        last_date = last_date.replace(month=last_month)
+
+    first = first_date.strftime("%Y%m%d")
+    last = last_date.strftime("%Y%m%d")
+
+    print(first, last)
     params = {
         "ATPT_OFCDC_SC_CODE": "C10",
         "SD_SCHUL_CODE": "7150658",
         "KEY": os.getenv("SCHOOLD_OPENAPI_API_KEY"),
         "Type": "json",
         "AA_FROM_YMD": first,
-        "AA_TO_YMD": last
+        "AA_TO_YMD": last,
+        "pSize" : 1000
     }
-    res = requests.get(url, params=params)
-    if res.status_code == 200:
-        data = res.json()
-        event = parse_school_schedule(data)
-        print(event)
-        return event
-    else:
-        print(f"요청 실패! 상태 코드: {res.status_code}")
-        print(res.text)
-        return "요청 실패"
+    async with httpx.AsyncClient(timeout=30) as client:
+        res = await client.get(url, params=params)
+        if res.status_code == 200:
+            data = res.json()
+            event = parse_school_schedule(data)
+            print(event)
+            return event
+        else:
+            print(f"요청 실패! 상태 코드: {res.status_code}")
+            print(res.text)
+            return "요청 실패"
 
 def parse_school_schedule(data):
+    if "SchoolSchedule" not in data:
+        return {}
     events = data["SchoolSchedule"][1]["row"]
     parsed_events = []
 
@@ -287,4 +314,72 @@ def parse_school_schedule(data):
             grades.append("3학년")
 
         parsed_events.append({
-            "날짜"
+            "날짜": date,
+            "이벤트 이름": event_name,
+            "이벤트 유형": event_type,
+            "대상 학년": ", ".join(grades)
+        })
+    return parsed_events
+
+
+async def extract_user_info(req):
+    llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
+    year = datetime.now().strftime("%H")
+    temp = """
+    사용자의 정보를 문장에서 추출하여 JSON 형식으로 반환하세요.  
+    
+    응답 형식 :
+    {format_instructions}
+    
+    MongoDB의 동적 스키마를 활용하므로, **정해진 데이터 구조가 없으며** 문장에서 추출 가능한 모든 정보를 유연하게 포함할 수 있습니다.
+    올해는 {year}입니다.
+      
+    📌 **규칙**  
+    1. 문장에서 **추론 가능한 정보는 모두 포함**하세요.  
+        - 예: 이름, 나이, 학년, 성적, 관심사 등등   
+    2. 문장에서 명확히 추출할 수 없는 정보는 포함하지 않습니다.  
+    3. 문장에서 정보를 전혀 추출할 수 없는 경우, 빈 JSON 객체 {{}}를 반환하세요.  
+    
+    🎯 **입력 예시**  
+    문장: "나는 중학교 3학년이고 성적이 낮은 편인데 부소마고에 입학할 수 있을까?"  
+    📝 **출력 예시**  
+    {{"나이": “16”,“학년”: “중학교 3학년”,“성적”: “낮은 편”}}
+
+    🎯 **입력 예시**  
+    문장: "저는 소프트웨어 개발에 관심이 많아요!"  
+    📝 **출력 예시**  
+    {{"관심사”: “소프트웨어 개발"}}
+    
+    📌 **추가 규칙**  
+    - 반환되는 JSON 객체는 MongoDB에서 바로 저장할 수 있는 형식이어야 합니다.  
+    - 중첩된 데이터가 필요한 경우, 중첩된 JSON 객체로 표현하세요.  
+    
+    문장 : {sentense}
+    응답 : 
+"""
+    parser = JsonOutputParser()
+    prompt = PromptTemplate(input_variables=["year", "sentense"], template=temp, partial_variables={"format_instructions": parser.get_format_instructions()})
+    chain = prompt | llm | parser
+    res = chain.invoke(input={"year" : year, "sentense" : req})
+    return res
+
+async def initUser(userid):
+    try:
+        await db.deleteUser(userid)
+        result = redis.delete("message_store:" + userid)
+        if result:
+            return 200
+        else:
+            return 201
+    except Exception as e:
+        print(f"error: {e}")
+        return 400
+
+async def getUser(userid):
+    user = await db.getUser(userid)
+    print(user)
+    if not user or user == "사용자 정보가 없습니다.":
+        return "사용자 정보가 없습니다."
+    userInfo = "\n".join([f"{key} : {value}" for key, value in user.items()])
+    print(userInfo)
+    return userInfo

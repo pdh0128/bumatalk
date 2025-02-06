@@ -25,12 +25,12 @@ pinecone_index = pc.Index(index_name)
 vector_store = PineconeVectorStore(index_name=index_name, embedding=embeddings)
 
 
-def store(name, text, url):
+async def store(name, text, url):
     if name is None or name == "":
         print("이름이 비어있습니다.")
         return
 
-    summary_Text = summary(name, text)
+    summary_Text = await summary(name, text)
     embedding = embeddings.embed_query(summary_Text)
     vector_store.add_texts(
         texts=[summary_Text],
