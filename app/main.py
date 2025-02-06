@@ -25,10 +25,9 @@ async def reply(request: Request):
             "text": "생각 중입니다! 잠시만 기다려 주세요.\n1분 이내에 답변 드리겠습니다!"
         }
     }
-
     async def sendResponse():
         try:
-            res = await asyncio.gather(bumatalk(req, userid))
+            res = await bumatalk(req, userid)
             responseBody = create_response_body(res)
             async with httpx.AsyncClient() as client:
                 await client.post(callback_url, json=responseBody)
@@ -59,7 +58,7 @@ async def init(request: Request):
     try:
         content = await request.json()
         userid = content["userRequest"]["user"]["id"]
-        flag = initUser(userid)
+        flag = await initUser(userid)
         if flag == 200:
             res = "초기화 되었습니다! 🚀"
         elif flag == 201:
@@ -77,7 +76,7 @@ async def getUserInfo(request: Request):
     try:
         content = await request.json()
         userid = content["userRequest"]["user"]["id"]
-        user = getUser(userid)
+        user = await getUser(userid)
         responseBody = create_response_body(user)
         return responseBody
     except Exception as e:
